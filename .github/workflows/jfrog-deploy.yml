@@ -40,15 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ── Setup JFrog CLI ──
-      - name: Setup JFrog CLI
-        uses: jfrog/setup-jfrog-cli@v4
-        env:
-          JF_URL: ${{ secrets.JFROG_URL }}
-          JF_USER: ${{ secrets.JFROG_USER }}
-          JF_PASSWORD: ${{ secrets.JFROG_ACCESS_TOKEN }}
-
-      # ── Docker login a JFrog con usuario y token ──
+      # ── Docker login a JFrog ──
       - name: Docker login to JFrog
         run: |
           DOCKER_REGISTRY=$(echo "${{ secrets.JFROG_URL }}" | sed 's|https://||')
@@ -65,17 +57,10 @@ jobs:
             -t "${TAG}:${{ github.sha }}" \
             .
 
-      # ── Push image usando JFrog CLI (ya autenticada) ──
+      # ── Push image to JFrog ──
       - name: Push Docker image to JFrog
         run: |
           DOCKER_REGISTRY=$(echo "${{ secrets.JFROG_URL }}" | sed 's|https://||')
           TAG="${DOCKER_REGISTRY}/${{ secrets.JFROG_REPO }}/${IMAGE_NAME}"
-          jf docker push "${TAG}:latest" --build-name="${{ github.workflow }}" --build-number="${{ github.run_number }}"
-          jf docker push "${TAG}:${{ github.sha }}" --build-name="${{ github.workflow }}" --build-number="${{ github.run_number }}"
-
-      # ── Publicar info de build en JFrog ──
-      - name: Publish Build Info
-        run: |
-          jf rt build-collect-env
-          jf rt build-add-git
-          jf rt build-publish
+          docker push "${TAG}:latest"
+          docker push "${TAG}:${{ github.sha }}"
