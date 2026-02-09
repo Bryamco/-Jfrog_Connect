@@ -13,7 +13,7 @@ env:
   JFROG_URL: ${{ secrets.JFROG_URL }}             # ej: https://mycompany.jfrog.io
   JFROG_USER: ${{ secrets.JFROG_USER }}           # usuario JFrog
   JFROG_PASSWORD: ${{ secrets.JFROG_PASSWORD }}    # contraseña o API Key
-  JFROG_REPO: ${{ secrets.JFROG_REPO }}           # nombre del Docker repo, ej: docker-local
+  JFROG_REPO: ${{ secrets.JFROG_REPO }}           # nombre del Docker repo: jfrog-docker
   IMAGE_NAME: hello-world-app
 
 jobs:
