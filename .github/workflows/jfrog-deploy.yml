@@ -1,0 +1,81 @@
+name: Build & Push to JFrog
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  # ────────────────────────────────────────────────────────
+  # Configura estos valores en GitHub → Settings → Secrets
+  # ────────────────────────────────────────────────────────
+  JFROG_URL: ${{ secrets.JFROG_URL }}             # ej: https://mycompany.jfrog.io
+  JFROG_USER: ${{ secrets.JFROG_USER }}           # usuario JFrog
+  JFROG_PASSWORD: ${{ secrets.JFROG_PASSWORD }}    # contraseña o API Key
+  JFROG_REPO: ${{ secrets.JFROG_REPO }}           # nombre del Docker repo, ej: docker-local
+  IMAGE_NAME: hello-world-app
+
+jobs:
+  # ─── 1. Lint & Test (placeholder) ──────────────────────
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Smoke test – import check
+        run: python -c "import app.main; print('✅ Import OK')"
+
+  # ─── 2. Build image & Push to JFrog ────────────────────
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Setup JFrog CLI ──
+      - name: Setup JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v4
+        env:
+          JF_URL: ${{ env.JFROG_URL }}
+          JF_USER: ${{ env.JFROG_USER }}
+          JF_PASSWORD: ${{ env.JFROG_PASSWORD }}
+
+      # ── Docker login to JFrog ──
+      - name: Docker login to JFrog
+        run: |
+          DOCKER_REGISTRY=$(echo "$JFROG_URL" | sed 's|https://||')
+          echo "$JFROG_PASSWORD" | docker login "$DOCKER_REGISTRY" \
+            --username "$JFROG_USER" --password-stdin
+
+      # ── Build Docker image ──
+      - name: Build Docker image
+        run: |
+          DOCKER_REGISTRY=$(echo "$JFROG_URL" | sed 's|https://||')
+          TAG="${DOCKER_REGISTRY}/${JFROG_REPO}/${IMAGE_NAME}"
+          docker build \
+            -t "${TAG}:latest" \
+            -t "${TAG}:${{ github.sha }}" \
+            .
+
+      # ── Push image to JFrog ──
+      - name: Push Docker image to JFrog
+        run: |
+          DOCKER_REGISTRY=$(echo "$JFROG_URL" | sed 's|https://||')
+          TAG="${DOCKER_REGISTRY}/${JFROG_REPO}/${IMAGE_NAME}"
+          docker push "${TAG}:latest"
+          docker push "${TAG}:${{ github.sha }}"
+
+      # ── Publicar info de build en JFrog ──
+      - name: Publish Build Info
+        run: |
+          jf rt build-collect-env
+          jf rt build-add-git
+          jf rt build-publish
